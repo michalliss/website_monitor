@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="title">
+        Status history of {{ website.url }}
+    </h1>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="notification is-danger">
+                {{ messages[0] }}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="columns is-multiline">
+
+
+        <div class="column is-full">
+            <div class="block">
+                <div class="card">
+                    <header class="card-header">
+                        <p class="card-header-title">
+                            {{ website }}
+                        </p>
+                        <a href="#" class="card-header-icon" aria-label="more options">
+                              <span class="icon">
+                                 <figure class="image is-16x16">
+                                <img style="vertical-align:middle" src="http://{{ website.url }}/favicon.ico"
+                                     onerror="this.onerror=null;this.src='/static/website.png';">
+                              </figure>
+                              </span>
+                        </a>
+                    </header>
+
+                    <div class="card-content">
+                        <div class="content">
+                            <div class="panel">
+                                <div class="chart-container">
+                                    Your website has been up {{ percentage }}% of the time last week
+                                    <canvas id="myChart" height="70px"></canvas>
+                                    <canvas id="myChart2" height="70px"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <footer class="card-footer">
+                        <div class="card-footer-item">
+                            <div class="select">
+                                <select id="attack-select">
+                                    {% for attack in attacks %}
+                                        <option>{{ attack }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="field has-addons  has-addons is-fullwidth">
+                                <div class="control">
+                                    <input id="timeout-input" class="input" type="text" placeholder="Timeout < 60s">
+                                </div>
+                                <input type="hidden" name="website" value="{{ website.id }}">
+                                <button class="button is-link" data-website="{{ website.id }}" id="button-run-attack"
+                                        onclick="runAttack()">Run Attack
+                                </button>
+                            </div>
+                        </div>
+
+                        <form action="/unfollow_website" class="card-footer-item" method="post">
+                            <input type="hidden" name="website" value="{{ website.id }}">
+                            <a onclick="this.parentNode.submit();">Unfollow</a>
+                        </form>
+
+
+                        {% if following.send_mail == True %}
+                            <form action="/mail_website"
+                                  class="card-footer-item is-primary"
+                                  method="post">
+                                <input type="hidden" name="website" value="{{ website.id }}">
+                                <input type="hidden" name="website" value="{{ website.id }}">
+                                <a onclick="this.parentNode.submit();">Email notification: ON</a>
+                            </form>
+                        {% else %}
+                            <form action="/mail_website"
+                                  class="card-footer-item"
+                                  method="post">
+                                <input type="hidden" name="website" value="{{ website.id }}">
+                                <input type="hidden" name="website" value="{{ website.id }}">
+                                <a onclick="this.parentNode.submit();">Email notification: OFF</a>
+                            </form>
+                        {% endif %}
+                    </footer>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <script>
+
+        function runAttack() {
+            var input = document.getElementById("timeout-input")
+            var select = document.getElementById("attack-select")
+            var data = $.post('/run_attack',
+                {
+                    website: {{ website.id }},
+                    timeout: input.value,
+                    attack: select.value
+                });
+            updateButtons();
+        }
+
+        function updateButtons() {
+            var runButton = document.getElementById("button-run-attack")
+            var updatedData = $.get('/attack_status/' + {{ website.id }});
+            updatedData.done(function (result) {
+                var status = Boolean(result.running)
+                if (status) {
+                    runButton.disabled = true;
+                    runButton.innerHTML = "Attack running...";
+                } else {
+                    runButton.innerHTML = "Run Attack";
+                    runButton.disabled = false
+                }
+            })
+        }
+
+        chart = {
+            websiteId: {{ website.id }},
+            chart: drawChart("myChart")
+        }
+        updateChart(chart)
+
+
+        chart2 = {
+            websiteId: {{ website.id }},
+            chart: drawChartDays("myChart2")
+        }
+
+        updateDays(chart2)
+
+        function updateChart(chart) {
+            var updatedData = $.get('/get_website/' + chart.websiteId + "/0");
+            updatedData.done(function (result) {
+                console.log(result);
+                latencies = result.latencies;
+                times = result.times;
+                chart.chart.data.datasets[0].data = latencies;
+                chart.chart.data.labels = times;
+                chart.chart.update();
+            })
+        }
+
+        function updateDays(chart) {
+            var updatedData = $.get('/status_days/' + chart.websiteId + "/6");
+            updatedData.done(function (result) {
+                console.log(result);
+                dataset = result.percentage;
+                times = result.times;
+                chart.chart.data.datasets[0].data = dataset;
+                chart.chart.data.labels = times;
+                chart.chart.update();
+            })
+        }
+
+        var updateInterval = setInterval(function () {
+            updateChart(chart);
+            updateDays(chart2)
+            updateButtons();
+        }, 10000);
+
+        var updateInterval2 = setInterval(function () {
+            updateButtons();
+        }, 2000);
+
+        function drawChart(elementId) {
+            var ctx = document.getElementById(elementId).getContext('2d');
+            var myData = {
+                labels: [],
+                datasets: [{
+                    label: "Latency [ms]",
+                    data: [],
+                    spanGaps: false,
+                    lineTension: 0.8,
+                    backgroundColor: 'rgba(102, 187, 106, 0.5)',
+                }]
+            };
+            var chartOptions = {
+                tooltips: {
+                    mode: 'index',
+                    intersect: false
+                },
+                hover: {
+                    mode: 'x',
+                    intersect: false
+                },
+                elements: {
+                    point: {
+                        radius: 0
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: 80,
+                        fontColor: 'black'
+                    }
+                },
+                scales: {
+                    yAxes: [{
+                        position: 'left',
+                        ticks: {
+                            beginAtZero: true,
+                            min: 0,
+                        },
+                    }],
+                    xAxes: [{
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 20
+                        }
+                    }],
+                },
+            };
+            var lineChart = new Chart(ctx, {
+                type: 'line',
+                data: myData,
+                options: chartOptions
+            });
+
+            return lineChart;
+        }
+
+        function drawChartDays(elementId) {
+            var ctx = document.getElementById(elementId).getContext('2d');
+            var myData = {
+                labels: [],
+                datasets: [{
+                    label: "Website availability [%]",
+                    data: [],
+                    backgroundColor: 'rgba(102, 187, 106, 0.5)',
+                }]
+            };
+            var chartOptions = {
+                tooltips: {
+                    mode: 'index',
+                    intersect: false
+                },
+                hover: {
+                    mode: 'index',
+                    intersect: false
+                },
+                elements: {
+                    point: {
+                        radius: 0
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: 80,
+                        fontColor: 'black'
+                    }
+                },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true,
+                            min: 0,
+                            max: 100
+                        }
+                    }],
+                    xAxes: [{
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    }],
+                }
+            };
+            var lineChart = new Chart(ctx, {
+                type: 'bar',
+                data: myData,
+                options: chartOptions
+            });
+
+            return lineChart;
+        }
+
+
+    </script>
+
+{% endblock %}
+

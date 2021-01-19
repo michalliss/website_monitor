@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="title">
+        Welcome {{ user }}!
+    </h1>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="notification is-danger">
+                {{ messages[0] }}
+            </div>
+        {% endif %}
+    {% endwith %}
+    <div class="block">
+    <form method="POST" action="/add_website">
+        <div class="field has-addons  has-addons-fullwidth is-fullwidth">
+            <div class="control">
+                <input class="input is-large is-block" name="website" placeholder="Website " autofocus="">
+
+            </div>
+              <button class="button is-block is-info is-large">Add website</button>
+        </div>
+    </form>
+    </div>
+
+    <h1 class="title"> Followed websites </h1>
+
+    <div class="columns is-multiline">
+
+        {% for item in websites %}
+            <div class="column is-half-desktop is-half-tablet">
+                <div class="block">
+                    <div class="card">
+                        <header class="card-header">
+                            <a class="card-header-title" href="/website/{{ item.website.id }}">
+                                {{ item.website }}
+                            </a>
+                            <a href="#" class="card-header-icon" aria-label="more options">
+                              <span class="icon">
+                                 <figure class="image is-16x16">
+                                <img style="vertical-align:middle" src="http://{{ item.website.url }}/favicon.ico"
+                                     onerror="this.onerror=null;this.src='/static/website.png';">
+                              </figure>
+                              </span>
+                            </a>
+                        </header>
+                        <div class="card-content">
+                            <div class="content">
+                                <canvas id="myChart-{{ item.website.id }}" width="100%" height="50%"></canvas>
+                            </div>
+                        </div>
+                        <footer class="card-footer">
+                            <form action="/unfollow_website" class="card-footer-item" method="post">
+                                <input type="hidden" name="website" value="{{ item.website.id }}">
+                                <a onclick="this.parentNode.submit();">Unfollow</a>
+                            </form>
+
+
+
+                        </footer>
+                    </div>
+                </div>
+
+            </div>
+        {% endfor %}
+    </div>
+    <script>
+        function updateButtons() {
+            return;
+            var runBtns = document.querySelectorAll(".attack-button");
+            runBtns.forEach((button) => {
+                var updatedData = $.get('/attack_status/' + button.website);
+                updatedData.done(function (result) {
+                    console.log(result);
+                    status = result.stat;
+                    if (status == true) {
+                        button.innerHTML = "Running";
+                    } else {
+                        button.innerHTML = "Stopped";
+                    }
+                })
+            })
+        }
+
+        let charts = [];
+
+        function drawCharts() {
+            {% for ws in websites %}
+                charts.push({
+                    chart: drawChart("myChart-{{ws.website.id}}"),
+                    websiteId: {{ws.website.id}},
+                })
+            {% endfor %}
+            for (let i = 0; i < charts.length; i++) {
+                updateChart(charts[i])
+            }
+        }
+
+
+        function updateChart(chart) {
+            var updatedData = $.get('/get_website/' + chart.websiteId + "/30");
+            updatedData.done(function (result) {
+                console.log(result);
+                latencies = result.latencies;
+                times = result.times;
+                chart.chart.data.datasets[0].data = latencies;
+                chart.chart.data.labels = times;
+                chart.chart.update();
+            })
+        }
+
+        var updateInterval = setInterval(function () {
+            console.log("timeout!");
+            for (let i = 0; i < charts.length; i++) {
+                updateChart(charts[i]);
+            }
+            updateButtons();
+        }, 2000);
+
+        drawCharts()
+
+        function drawChart(elementId) {
+            var ctx = document.getElementById(elementId).getContext('2d');
+            var myData = {
+                labels: [],
+                datasets: [{
+                    label: "Latency",
+                    data: [],
+                    spanGaps: false,
+                    lineTension: 0.4,
+                    backgroundColor: 'rgba(102, 187, 106, 0.5)',
+                }]
+            };
+            var chartOptions = {
+                tooltips: {
+                    mode: 'index',
+                    intersect: false
+                },
+                hover: {
+                    mode: 'index',
+                    intersect: false
+                },
+                elements: {
+                    point: {
+                        radius: 0
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: 80,
+                        fontColor: 'black'
+                    }
+                },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true,
+                            min: 0
+                        }
+                    }],
+                    xAxes: [{
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 20
+                        }
+                    }],
+                },
+            };
+            var lineChart = new Chart(ctx, {
+                type: 'line',
+                data: myData,
+                options: chartOptions
+            });
+
+            return lineChart;
+        }
+
+
+        {#var xmlHttp = new XMLHttpRequest();#}
+        {#xmlHttp.open("GET", "/get_website/{{item.website.id}}", false); // false for synchronous request#}
+        {#xmlHttp.send(null);#}
+        {#json = JSON.parse(xmlHttp.responseText);#}
+        {#latencies = json.latencies;#}
+        {#times = json.times;#}
+        {#console.log(xmlHttp.responseText);#}
+
+
+        // do something with myJson
+
+
+    </script>
+
+{% endblock %}
+
