@@ -29,3 +29,6 @@ Website monitor uses a couple of python (and JS) libraries to make things work.
 
 Everything is just simple and easy to find. Some screenshots:
 
+![1](/screenshots/1.png)
+![2](/screenshots/2.png)
+![3](/screenshots/3.png)
