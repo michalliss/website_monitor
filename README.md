@@ -1,6 +1,6 @@
 # Website monitor
 
-Website monitor is an app that can monitor the status of your website. You can register many users and follow any website you want. When your site goes down, you'll get an email notification. You can also check the history of followed website to get a better overview of the situation. 
+Website monitor is an app that can monitor the status of your websites. You can register many users and follow any website you want. When your site goes down, you'll get an email notification. You can also check the history of followed website to get a better overview of the situation. 
 
 Additionally, it supports running simple attacks, such as slow loris. Combined with the history and live view of the website’s status it can be a useful tool for administrators.
 
